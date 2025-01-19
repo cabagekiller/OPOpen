@@ -108,7 +108,7 @@ jobs:
         run: |
           mkdir -p kernel_platform/oneplus12_v
           cd kernel_platform/oneplus12_v
-          repo init -u https://github.com/TheWildJames/OnePlus_KernelSU_SUSFS.git -b open -m oneplus_open_v.xml --repo-rev=v2.16 --depth=1
+          repo init -u https://github.com/TheWildJames/OnePlus_KernelSU_SUSFS.git -b open -m oneplus_open_v.xml --repo-rev=v2.16
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
           rm -rf ./kernel_platform/common/android/abi_gki_protected_exports_*
 
@@ -145,7 +145,7 @@ jobs:
           patch -p1 < 10_enable_susfs_for_ksu.patch || true
           
           cd ../common
-          patch -p1 < 50_add_susfs_in_gki-android13.5.15.patch || true
+          patch -p1 < 50_add_susfs_in_gki-android13-5.15.patch || true
           patch -p1 -F 3 < 69_hide_stuff.patch || true
           sed -i '/obj-$(CONFIG_KSU_SUSFS_SUS_SU) += sus_su.o/d' ./fs/Makefile
           
@@ -181,7 +181,7 @@ jobs:
           mkdir out
           export PATH="/usr/lib/ccache:$PATH"
           # Modified build command with correct syntax
-          ./oplus/build/oplus_build_kernel.sh -t kalama gki thin all disable -o "$(pwd)/out"
+          ./oplus/build/oplus_build_kernel.sh kalama gki thin all disable -o "$(pwd)/out"
             
       - name: Debug Working Directory
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform/out/dist
