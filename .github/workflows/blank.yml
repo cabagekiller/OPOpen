@@ -133,7 +133,7 @@ jobs:
           
           # Copy patches
           cp ../../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
-          cp ../../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+          cp ../../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch ./common/
           cp ../../../kernel_patches/69_hide_stuff.patch ./common/
           cp ../../../kernel_patches/selinux.c_fix.patch ./
           cp ../../../kernel_patches/apk_sign.c_fix.patch ./
@@ -182,7 +182,7 @@ jobs:
           export PATH="/usr/lib/ccache:$PATH"
           # Modified build command with correct syntax
           ./build_with_bazel.py \
-            -t pineapple \
+            -t kalama \
             gki \
             --jobs=$(nproc --all) \
             --verbose_failures \
