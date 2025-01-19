@@ -108,7 +108,7 @@ jobs:
         run: |
           mkdir -p kernel_platform/oneplus12_v
           cd kernel_platform/oneplus12_v
-          repo init -u ttps://github.com/TheWildJames/OnePlus_KernelSU_SUSFS.git -b open -m oneplus_open_v.xml --repo-rev=v2.1 --depth=1
+          repo init -u https://github.com/TheWildJames/OnePlus_KernelSU_SUSFS.git -b open -m oneplus_open_v.xml --repo-rev=v2.1 --depth=1
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
           rm -rf ./kernel_platform/common/android/abi_gki_protected_exports_*
 
