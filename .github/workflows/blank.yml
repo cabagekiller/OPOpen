@@ -9,7 +9,7 @@ on:
 env:
   DEBIAN_FRONTEND: noninteractive
   ROOT_DIR_PREFIX: "OP12-A15"
-  BRANCH: "android14-6.1"
+  BRANCH: "android13-5.15"
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
 jobs:
@@ -100,7 +100,7 @@ jobs:
         working-directory: builds/${{ env.ROOT_DIR }}
         run: |
           git clone https://github.com/TheWildJames/AnyKernel3.git -b $BRANCH
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android13-5.15
           git clone https://github.com/TheWildJames/kernel_patches.git
 
       - name: Setup Kernel Source
@@ -108,7 +108,7 @@ jobs:
         run: |
           mkdir -p kernel_platform/oneplus12_v
           cd kernel_platform/oneplus12_v
-          repo init -u https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8550.git -b oneplus/sm8550_v_15.0.0_oneplus_open --depth=1
+          repo init -u ttps://github.com/TheWildJames/OnePlus_KernelSU_SUSFS.git -b open -m oneplus_open_v.xml --repo-rev=v2.1 --depth=1
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
           rm -rf ./kernel_platform/common/android/abi_gki_protected_exports_*
 
