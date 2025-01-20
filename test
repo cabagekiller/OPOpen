@@ -1,0 +1,154 @@
+name: Build and Release Kernel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  ROOT_DIR_PREFIX: "OP12-A15"
+  BRANCH: "android13-5.15"
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GKI_DEFCONFIG: "common/arch/arm64/configs/gki_defconfig"
+  
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Free Disk Space
+        run: |
+          sudo apt-get update -qq
+          curl -fsSL https://raw.githubusercontent.com/kou/arrow/main/ci/scripts/util_free_space.sh | bash
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-pip \
+            curl \
+            git \
+            zip \
+            unzip \
+            gcc \
+            g++ \
+            make \
+            ninja-build \
+            file \
+            bc \
+            bison \
+            flex \
+            libssl-dev \
+            libelf-dev \
+            wget \
+            build-essential \
+            python3-dev \
+            python3-setuptools \
+            rsync \
+            ccache
+          pip3 install --upgrade pip
+          pip3 install gitpython xmltodict
+          
+      - name: Install and Configure Repo Tool
+        run: |
+          mkdir -p ~/.bin
+          curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o ~/.bin/repo
+          chmod +x ~/.bin/repo
+          echo "$HOME/.bin" >> $GITHUB_PATH
+          repo --version
+
+      - name: Configure Environment
+        run: |
+          ROOT_DIR="${ROOT_DIR_PREFIX}-$(date +'%Y-%m-%d-%H-%M-%S')-release"
+          echo "ROOT_DIR=${ROOT_DIR}" >> $GITHUB_ENV
+          mkdir -p "builds/${ROOT_DIR}"
+          echo "ROOT Directory set to: builds/${ROOT_DIR}"
+
+      - name: Clone Repositories
+        working-directory: builds/${{ env.ROOT_DIR }}
+        run: |
+          git clone https://github.com/TheWildJames/AnyKernel3.git -b $BRANCH
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android13-5.15
+          git clone https://github.com/TheWildJames/kernel_patches.git
+
+      - name: Setup Kernel Source
+        working-directory: builds/${{ env.ROOT_DIR }}
+        run: |
+          mkdir -p kernel_platform/oneplus12_v
+          cd kernel_platform/oneplus12_v
+          repo init -u https://github.com/TheWildJames/OnePlus_KernelSU_SUSFS.git -b open -m oneplus_open_v.xml --repo-rev=v2.16
+          repo sync -c -j$(nproc) --force-sync --no-clone-bundle --no-tags
+
+      - name: Setup KernelSU and SUSFS
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
+        run: |
+          # KernelSU Setup
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+          sed -i 's/ccflags-y += -DKSU_VERSION=16/ccflags-y += -DKSU_VERSION=12312/' KernelSU-Next/kernel/Makefile
+          
+          # SUSFS Setup
+          mkdir -p ./common/fs ./common/include/linux
+          cp ../../../susfs4ksu/kernel_patches/fs/susfs.c ./common/fs/
+          cp ../../../susfs4ksu/kernel_patches/include/linux/susfs.* ./common/include/linux/
+          cp ../../../kernel_patches/*.patch ./common/
+          
+          # Apply Patches
+          cd KernelSU-Next
+          patch -p1 < ../common/10_enable_susfs_for_ksu.patch || true
+          cd ../common
+          patch -p1 < 50_add_susfs_in_gki-android13-5.15.patch || true
+          patch -p1 < 69_hide_stuff.patch || true
+          patch -p1 < selinux.c_fix.patch || true
+          patch -p1 < apk_sign.c_fix.patch || true
+          patch -p1 < Makefile_fix.patch || true
+          patch -p1 < core_hook.c_fix.patch || true
+
+      - name: Configure Kernel Build
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
+        run: |
+          # Enable KernelSU and SUSFS configs
+          echo -e "CONFIG_KSU=y\nCONFIG_KSU_SUSFS=y\nCONFIG_KSU_SUSFS_SUS_PATH=y\nCONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> $GKI_DEFCONFIG
+          # Additional configurations as needed
+
+      - name: Build Kernel
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v
+        run: |
+          mkdir -p kernel_platform/out
+          export PATH="/usr/lib/ccache:$PATH"
+          ./kernel_platform/oplus/build/oplus_build_kernel.sh kalama gki thin all disable -o "$(pwd)/kernel_platform/out"
+          ls -l kernel_platform/out
+
+      - name: Package Kernel
+        working-directory: builds/${{ env.ROOT_DIR }}
+        run: |
+          cp kernel_platform/oneplus12_v/kernel_platform/out/dist/Image AnyKernel3/Image
+          cp kernel_platform/oneplus12_v/kernel_platform/out/dist/Image.lz4 AnyKernel3/Image.lz4
+          cd AnyKernel3
+          ZIP_NAME="Anykernel3-OP-A15-android14-6.1-KernelSUNext-SUSFS-$(date +'%Y-%m-%d-%H-%M-%S').zip"
+          zip -r "../$ZIP_NAME" ./*
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Publish Release
+        run: |
+          gh release create "v${{ env.BRANCH }}-$(date +'%Y.%m.%d-%H%M%S')" \
+            "builds/${{ env.ROOT_DIR }}/${{ env.zip_name }}" \
+            --title "OP12 A15 Kernel Release" \
+            --notes "Kernel release with KernelSU and SUSFS" \
+            --prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Logs and Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            builds/${{ env.ROOT_DIR }}/kernel_platform/**/*.log
+            builds/${{ env.ROOT_DIR }}/kernel_platform/**/*.rej
+          retention-days: 7
