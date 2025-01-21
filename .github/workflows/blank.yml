@@ -119,7 +119,7 @@ jobs:
           
           # Copy patches
           cp ../../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
-          cp ../../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+          cp ../../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android13-5.15.patch ./common/
           cp ../../../kernel_patches/69_hide_stuff.patch ./common/
           cp ../../../kernel_patches/selinux.c_fix.patch ./
           cp ../../../kernel_patches/apk_sign.c_fix.patch ./
@@ -131,7 +131,7 @@ jobs:
           patch -p1 < 10_enable_susfs_for_ksu.patch || true
           
           cd ../common
-          patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+          patch -p1 < 50_add_susfs_in_gki-android13-5.15.patch || true
           patch -p1 -F 3 < 69_hide_stuff.patch || true
           sed -i '/obj-$(CONFIG_KSU_SUSFS_SUS_SU) += sus_su.o/d' ./fs/Makefile
           
@@ -212,7 +212,7 @@ jobs:
           cp kernel_platform/oneplus12_v/kernel_platform/out/dist/Image AnyKernel3/Image
           cp kernel_platform/oneplus12_v/kernel_platform/out/dist/Image.lz4 AnyKernel3/Image.lz4
           cd AnyKernel3
-          ZIP_NAME="Anykernel3-OP-A15-android14-6.1-KernelSUNext-SUSFS-$(date +'%Y-%m-%d-%H-%M-%S').zip"
+          ZIP_NAME="Anykernel3-OP-A15-android13-5.15-KernelSUNext-SUSFS-$(date +'%Y-%m-%d-%H-%M-%S').zip"
           zip -r "../$ZIP_NAME" ./*
           echo "zip_name=$ZIP_NAME" >> $GITHUB_ENV
 
@@ -221,7 +221,7 @@ jobs:
           ZIP_FILE_PATH="builds/${{ env.ROOT_DIR }}/${{ env.zip_name }}"
           if [ -f "$ZIP_FILE_PATH" ]; then
               gh release create "v${{ env.BRANCH }}-$(date +'%Y.%m.%d-%H%M%S')" "$ZIP_FILE_PATH" \
-                --title "OP12 A15 ${{ env.BRANCH }} With KernelSU & SUSFS" \
+                --title "OPOPEN A15 ${{ env.BRANCH }} With KernelSU & SUSFS" \
                 --notes "Kernel release" \
                 --prerelease
           else
