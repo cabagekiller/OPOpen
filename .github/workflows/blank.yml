@@ -98,7 +98,7 @@ jobs:
           repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
           rm -rf ./kernel_platform/common/android/abi_gki_protected_exports_*
 
-            - name: Setup KernelSU
+      - name: Setup KernelSU
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
         run: |
           curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
