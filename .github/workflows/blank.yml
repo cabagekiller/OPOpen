@@ -173,6 +173,9 @@ jobs:
           
           # Remove defconfig check
           sed -i '2s/check_defconfig//' ./common/build.config.gki
+          sed -i '$s|echo "\$res"|echo "\$cabage"|' ./common/scripts/setlocalversion
+          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
+          sed -i 's/-dirty//' ./common/scripts/setlocalversion
 
       - name: Build Kernel
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/
@@ -181,7 +184,7 @@ jobs:
           mkdir out
           export PATH="/usr/lib/ccache:$PATH"
           # Modified build command with correct syntax
-          ./oplus/build/oplus_build_kernel.sh kalama gki thin all disable -o "$(pwd)/out"
+          ./oplus/build/oplus_build_kernel.sh kalama gki -o "$(pwd)/out"
             
       - name: Debug Working Directory
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform/out/dist
