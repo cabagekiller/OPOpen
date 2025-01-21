@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Free disk space
+      - name: Free Disk Space
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qq curl
@@ -67,6 +67,99 @@ jobs:
           cmake .
           sudo make install
 
+      - name: Setup Python and Repo Tool
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install gitpython xmltodict
+          mkdir -p ~/.bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+x ~/.bin/repo
+          echo "$HOME/.bin" >> $GITHUB_PATH
+
+      - name: Configure Build Directory
+        run: |
+          ROOT_DIR="${ROOT_DIR_PREFIX}-$(date +'%Y-%m-%d-%I-%M-%p')-release"
+          echo "ROOT_DIR=${ROOT_DIR}" >> $GITHUB_ENV
+          mkdir -p "builds/${ROOT_DIR}"
+
+      - name: Clone Required Repositories
+        working-directory: builds/${{ env.ROOT_DIR }}
+        run: |
+          git clone https://github.com/TheWildJames/AnyKernel3.git -b $BRANCH
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android13-5.15
+          git clone https://github.com/TheWildJames/kernel_patches.git
+
+      - name: Setup Kernel Source
+        working-directory: builds/${{ env.ROOT_DIR }}
+        run: |
+          mkdir -p kernel_platform/oneplus12_v
+          cd kernel_platform/oneplus12_v
+          repo init -u https://github.com/TheWildJames/OnePlus_KernelSU_SUSFS.git -b open -m oneplus_open_v.xml --repo-rev=v2.16 --depth=1
+          repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+          rm -rf ./kernel_platform/common/android/abi_gki_protected_exports_*
+
+        - name: Setup KernelSU
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+          cd KernelSU-Next/kernel
+          sed -i 's/ccflags-y += -DKSU_VERSION=16/ccflags-y += -DKSU_VERSION=12312/' ./Makefile
+          
+      - name: Setup SUSFS
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
+        run: |
+          # Create necessary directories
+          mkdir -p ./common/fs
+          mkdir -p ./common/include/linux
+          
+          # Copy SUSFS files
+          cp ../../../susfs4ksu/kernel_patches/fs/susfs.c ./common/fs/
+          cp ../../../susfs4ksu/kernel_patches/include/linux/susfs.h ./common/include/linux/
+          cp ../../../susfs4ksu/kernel_patches/include/linux/susfs_def.h ./common/include/linux/
+          
+          # Copy patches
+          cp ../../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
+          cp ../../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+          cp ../../../kernel_patches/69_hide_stuff.patch ./common/
+          cp ../../../kernel_patches/selinux.c_fix.patch ./
+          cp ../../../kernel_patches/apk_sign.c_fix.patch ./
+          cp ../../../kernel_patches/Makefile_fix.patch ./
+          cp ../../../kernel_patches/core_hook.c_fix.patch ./
+          
+          # Apply patches
+          cd KernelSU-Next
+          patch -p1 < 10_enable_susfs_for_ksu.patch || true
+          
+          cd ../common
+          patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+          patch -p1 -F 3 < 69_hide_stuff.patch || true
+          sed -i '/obj-$(CONFIG_KSU_SUSFS_SUS_SU) += sus_su.o/d' ./fs/Makefile
+          
+          cd ..
+          patch -p1 -F 3 < selinux.c_fix.patch || true
+          patch -p1 -F 3 < apk_sign.c_fix.patch || true
+          patch -p1 --fuzz=3 < Makefile_fix.patch || true
+          patch -p1 --fuzz=3 < core_hook.c_fix.patch || true
+
+      - name: Configure Kernel
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
+        run: |
+          # Basic KernelSU and SUSFS configs
+          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig          
+          
+          # Remove defconfig check
+          sed -i '2s/check_defconfig//' ./common/build.config.gki
+
       - name: Debug Directory Structure (Post-Sync)
         run: |
           echo "Debugging directory structure..."
@@ -88,6 +181,11 @@ jobs:
               fi
           done
 
+      - name: Debugging Mode in Kernel Build Script
+        run: |
+          echo "Enabling debug mode for oplus_build_kernel.sh..."
+          sed -i '1s|^|set -x\n|' ./oplus/build/oplus_build_kernel.sh
+
       - name: Add Dummy Variables to Script
         run: |
           echo "Adding dummy variables to prevent undefined errors..."
@@ -96,19 +194,15 @@ jobs:
           echo "build_start_time=\$(date +%s)" >> ./oplus/build/oplus_build_kernel.sh
           echo "build_end_time=\$(date +%s)" >> ./oplus/build/oplus_build_kernel.sh
 
-      - name: Debugging Mode in Kernel Build Script
+      - name: Build Kernel
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/
         run: |
-          echo "Enabling debug mode for oplus_build_kernel.sh..."
-          sed -i '1s|^|set -x\n|' ./oplus/build/oplus_build_kernel.sh
-
-      - name: Continue with Build Process
-        run: |
-          echo "Proceeding with build..."
           ./oplus/build/oplus_build_kernel.sh kalama gki -o "$(pwd)/out"
 
-      - name: Debug Working Directory
+      - name: Debug Build Output
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform/out/dist
         run: |
+          echo "Checking build output..."
           pwd
           ls -l
 
@@ -117,31 +211,23 @@ jobs:
         run: |
           cp kernel_platform/oneplus12_v/kernel_platform/out/dist/Image AnyKernel3/Image
           cp kernel_platform/oneplus12_v/kernel_platform/out/dist/Image.lz4 AnyKernel3/Image.lz4
-          cd AnyKernel3  # Move to AnyKernel3 directory
+          cd AnyKernel3
           ZIP_NAME="Anykernel3-OP-A15-android14-6.1-KernelSUNext-SUSFS-$(date +'%Y-%m-%d-%H-%M-%S').zip"
-          echo "Creating zip file $ZIP_NAME..."
           zip -r "../$ZIP_NAME" ./*
-          ls -lh "../$ZIP_NAME"
           echo "zip_name=$ZIP_NAME" >> $GITHUB_ENV
 
       - name: Publish Release
         run: |
-          cd "./builds/${{ env.ROOT_DIR }}"
-          echo "ZIP_NAME: ${{ env.zip_name }}"
-          ZIP_FILE_PATH="${GITHUB_WORKSPACE}/builds/${{ env.ROOT_DIR }}/${{ env.zip_name }}"
-          echo "ZIP_FILE_PATH: $ZIP_FILE_PATH"
+          ZIP_FILE_PATH="builds/${{ env.ROOT_DIR }}/${{ env.zip_name }}"
           if [ -f "$ZIP_FILE_PATH" ]; then
-              echo "ZIP file found: $ZIP_FILE_PATH"
+              gh release create "v${{ env.BRANCH }}-$(date +'%Y.%m.%d-%H%M%S')" "$ZIP_FILE_PATH" \
+                --title "OP12 A15 ${{ env.BRANCH }} With KernelSU & SUSFS" \
+                --notes "Kernel release" \
+                --prerelease
           else
-              echo "Error: ZIP file not found at $ZIP_FILE_PATH!"
+              echo "Error: ZIP file not found!"
               exit 1
           fi
-          REPO_NAME=${REPO_NAME:-$GITHUB_REPOSITORY}
-          gh release create "v${{ env.BRANCH }}-$(date +'%Y.%m.%d-%H%M%S')" "$ZIP_FILE_PATH" \
-            --repo "$REPO_NAME" \
-            --title "OP12 A15 ${{ env.BRANCH }} With KernelSU & SUSFS" \
-            --notes "Kernel release" \
-            --prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
