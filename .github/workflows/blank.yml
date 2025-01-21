@@ -163,23 +163,8 @@ jobs:
       - name: Debug Directory Structure (Post-Sync)
         run: |
           echo "Debugging directory structure..."
-          find ./kernel_platform/oneplus12_v/ || echo "kernel_platform directory not found"
+          find ./kernel_platform/oneplus12_v/kernel_platform || echo "kernel_platform directory not found"
           find ./vendor || echo "vendor directory not found"
-
-      - name: Validate Required Files
-        run: |
-          echo "Validating required files..."
-          REQUIRED_FILES=(
-              "./kernel_platform/oplus/build/oplus_setup.sh"
-              "./vendor/oplus/kernel/prebuilt/vendorsetup.sh"
-              "./kernel_platform/build/android/prepare_vendor.sh"
-          )
-          for FILE in "${REQUIRED_FILES[@]}"; do
-              if [ ! -f "$FILE" ]; then
-                  echo "Error: Missing $FILE"
-                  exit 1
-              fi
-          done
 
       - name: Debugging Mode in Kernel Build Script
         run: |
@@ -195,7 +180,7 @@ jobs:
           echo "build_end_time=\$(date +%s)" >> ./oplus/build/oplus_build_kernel.sh
 
       - name: Build Kernel
-        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
         run: |
           ./oplus/build/oplus_build_kernel.sh kalama gki -o "$(pwd)/out"
 
