@@ -192,7 +192,7 @@ jobs:
           find . -type f || echo "No files found"
 
       - name: Add Dummy Variables to Build Script
-        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus_v/kernel_platform
         run: |
           echo "Adding dummy variables to prevent undefined errors..."
           if [ -f "oplus/build/oplus_build_kernel.sh" ]; then
