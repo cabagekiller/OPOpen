@@ -171,6 +171,7 @@ jobs:
           sed -i '2s/check_defconfig//' ./common/build.config.gki
 
       - name: Debug Directory Structure (Post-Sync)
+        working-directory: builds/${{ env.ROOT_DIR }}
         run: |
           echo "Debugging directory structure..."
           find ./kernel_platform/oneplus12_v/kernel_platform || echo "kernel_platform directory not found"
