@@ -209,7 +209,7 @@ jobs:
       - name: Build Kernel
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v
         run: |
-          ./kernel_platform/oplus/build/oplus_build_kernel.sh kalama gki -o "$(pwd)/out"
+          ./kernel_platform/oplus/build/oplus_build_kernel.sh kalama gki thin all disable -o "$(pwd)/out"
 
       - name: Debug Build Output
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform/out/dist
