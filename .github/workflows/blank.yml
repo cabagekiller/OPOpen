@@ -183,13 +183,28 @@ jobs:
           echo "Enabling debug mode for oplus_build_kernel.sh..."
           sed -i '1s|^|set -x\n|' ./oplus/build/oplus_build_kernel.sh
 
-      - name: Add Dummy Variables to Script
+      - name: Debug Directory Structure
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "Listing all files:"
+          find . -type f || echo "No files found"
+
+      - name: Add Dummy Variables to Build Script
+        working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/
         run: |
           echo "Adding dummy variables to prevent undefined errors..."
-          sed -i '/build_start_time=/d' ./oplus/build/oplus_build_kernel.sh
-          sed -i '/build_end_time=/d' ./oplus/build/oplus_build_kernel.sh
-          echo "build_start_time=\$(date +%s)" >> ./oplus/build/oplus_build_kernel.sh
-          echo "build_end_time=\$(date +%s)" >> ./oplus/build/oplus_build_kernel.sh
+          if [ -f "oplus/build/oplus_build_kernel.sh" ]; then
+          sed -i '/build_start_time=/d' oplus/build/oplus_build_kernel.sh
+          sed -i '/build_end_time=/d' oplus/build/oplus_build_kernel.sh
+          echo "build_start_time=\$(date +%s)" >> oplus/build/oplus_build_kernel.sh
+          echo "build_end_time=\$(date +%s)" >> oplus/build/oplus_build_kernel.sh
+          else
+          echo "Error: Build script not found in the expected directory!"
+            exit 1
+          fi
+
 
       - name: Build Kernel
         working-directory: builds/${{ env.ROOT_DIR }}/kernel_platform/oneplus12_v/kernel_platform
